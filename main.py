@@ -1,4 +1,5 @@
 import random
+import time
 
 import pygame
 
@@ -13,42 +14,97 @@ WINDOW_BACKGROUND_COLOR = 'black'
 WINDOW = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 
 last = pygame.time.get_ticks()
-cooldown = 600
+cooldown = 1000
 
-I = [["..SSSS.."],
-     ["....S..."
-      "....S..."
-      "....S..."
-      "....S..."]]
+I = [["SSSS"],
+     [".S.."
+      ".S.."
+      ".S.."
+      ".S.."]]
 
-T = [["....S..."
-      "...SSS.."],
-     ["....S..."
-      "....SS.."
-      "....S..."]]
+T = [[".S.."
+      "SSS."],
+     [".S.."
+      ".SS."
+      ".S.."],
+     ["...."
+      "SSS."
+      ".S.."],
+     [".S.."
+      "SS.."
+      ".S.."]]
+
 SQUARE = [
-    ["...SS..."
-     "...SS..."]]
-Z = [["....S..."
-      "...SS..."
-      "...S...."],
-     ["...SS..."
-      "....SS.."]]
-S = [["....S..."
-      "....SS.."
-      ".....S.."],
-     ["...SS..."
-      "..SS...."]]
-L = [["...SS..."
-      "....S..."
-      "....S..."],
-     ["........"
-      "....S..."
-      "..SSS..."]]
+    ["SS.."
+     "SS.."]]
+
+Z = [[".S.."
+      "SS.."
+      "S..."],
+     ["SS.."
+      ".SS."]]
+
+S = [["S..."
+      "SS.."
+      ".S.."],
+     [".SS."
+      "SS.."],
+     # ["S..."
+     #  "SS.."
+     #  ".S.."],
+     # [".SS."
+     #  "SS.."],
+     ]
+L = [["SS.."
+      ".S.."
+      ".S.."],
+     ["...."
+      "..S."
+      "SSS."],
+     ["S..."
+      "S..."
+      "SS.."],
+     ["SSS."
+      "S..."
+      "...."]
+     ]
+
+# I = [["..SSSS.."],
+#      ["....S..."
+#       "....S..."
+#       "....S..."
+#       "....S..."]]
+
+# T = [["....S..."
+#       "...SSS.."],
+#      ["....S..."
+#       "....SS.."
+#       "....S..."]]
+# SQUARE = [
+#     ["...SS..."
+#      "...SS..."]]
+# Z = [["....S..."
+#       "...SS..."
+#       "...S...."],
+#      ["...SS..."
+#       "....SS.."]]
+# S = [["....S..."
+#       "....SS.."
+#       ".....S.."],
+#      ["...SS..."
+#       "..SS...."]]
+# L = [["...SS..."
+#       "....S..."
+#       "....S..."],
+#      ["........"
+#       "....S..."
+#       "..SSS..."]]
 
 SHAPES = [S, Z, SQUARE, L, T, I]
 COLORS = ["green", "red", "yellow", "orange", "purple", "cyan"]
-# SHAPES = [SQUARE]
+
+
+# SHAPES = [I,T]
 
 
 class Block:
@@ -76,7 +132,7 @@ def detect_other_shapes(background_boxes, current_shape):
     return False
 
 
-def move_down(shape):
+def auto_move_down(shape):
     global last
     now = pygame.time.get_ticks()
     if now - last >= cooldown:
@@ -149,16 +205,57 @@ def detect_shapes_collision_on_moving_left(background_boxes, current_shape):
     return True
 
 
-def create_shape(shape, color):
+# def create_shape(shape, color, current_x=TOP_LEFT_X):
+#     created_shape = []
+#     rows = len(shape[0]) // 8
+#     columns = 8
+#     for i in range(rows):
+#         for j in range(columns):
+#             if shape[0][i * columns + j] == "S":
+#                 created_shape.append(Block(current_x + (j + 1) * BLOCK_SIZE, TOP_LEFT_Y + i * BLOCK_SIZE,
+#                                            BLOCK_SIZE, BLOCK_SIZE, color))
+#     return created_shape
+
+
+def create_shape(shape, color, current_x=GAME_WIDTH // 2 - BLOCK_SIZE, current_y=TOP_LEFT_Y):
     created_shape = []
-    rows = len(shape[0]) // 8
-    columns = 8
+    rows = len(shape[0]) // 4
+    columns = 4
     for i in range(rows):
         for j in range(columns):
             if shape[0][i * columns + j] == "S":
-                created_shape.append(Block(TOP_LEFT_X + (j + 1) * BLOCK_SIZE, TOP_LEFT_Y + i * BLOCK_SIZE,
-                                                 BLOCK_SIZE, BLOCK_SIZE, color))
+                created_shape.append(Block(current_x + j * BLOCK_SIZE, current_y + i * BLOCK_SIZE,
+                                           BLOCK_SIZE, BLOCK_SIZE, color))
     return created_shape
+
+
+def out_of_bounds_x_left(shape):
+    for box in shape:
+        if box.x < TOP_LEFT_X:
+            return True
+    return False
+
+
+def out_of_bounds_x_right(shape):
+    for box in shape:
+        if box.x >= TOP_LEFT_X + GAME_WIDTH:
+            return True
+    return False
+
+
+def rotate_shape(x, y, shape, color, current_shape_position):
+    next_position = current_shape_position + 1 if current_shape_position + 1 < len(shape) else 0
+    if SHAPES.index(shape) == 4 and next_position == 2 or SHAPES.index(shape) == 5 and next_position == 0:
+        x -= BLOCK_SIZE
+    new_shape = create_shape(shape[next_position], color, x, y)
+    while out_of_bounds_x_left(new_shape):
+        x += BLOCK_SIZE
+        new_shape = create_shape(shape[next_position], color, x, y)
+    while out_of_bounds_x_right(new_shape):
+        x -= BLOCK_SIZE
+        new_shape = create_shape(shape[next_position], color, x, y)
+
+    return new_shape, next_position
 
 
 def create_dict():
@@ -194,33 +291,52 @@ def move_lines_down(y, background):
 
 
 def remove_line(y_val, background):
+    # debug
+
+    # for y, line in background.items():
+    #     for box in line:
+    #         if y == y_val:
+    #             box.color = 'white'
+    #
+    # draw_background(background)
+    # pygame.display.update()
+    # time.sleep(1)
+
     background[y_val] = []
+
+
+def get_min_x(current_shape_rects):
+    min = current_shape_rects[0].x
+    for box in current_shape_rects:
+        if box.x < min:
+            min = box.x
+    return min
 
 
 def draw_next_shape(next_shape):
     FONT = pygame.font.SysFont('indigo', 32)
     next_label = FONT.render("NEXT SHAPE: ", True, "white")
-    WINDOW.blit(next_label, (GAME_WIDTH + 3 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 200))
+    WINDOW.blit(next_label, (GAME_WIDTH + 3 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 150))
 
-    pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 150),
-                     (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2 - 150), width=3)
-    pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2),
-                     (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2), width=3)
-
-    pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2),
-                     (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 150), width=3)
-
-    pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2),
-                     (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2 - 150), width=3)
+    # pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 150),
+    #                  (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2 - 150), width=3)
+    # pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2),
+    #                  (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2), width=3)
+    #
+    # pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2),
+    #                  (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 150), width=3)
+    #
+    # pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2),
+    #                  (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2 - 150), width=3)
 
     rows = len(next_shape[0][0]) // 8
     columns = 8
     for i in range(rows):
         for j in range(columns):
             if next_shape[0][0][i * columns + j] == "S":
-                pygame.draw.rect(WINDOW, COLORS[SHAPES.index(next_shape)], pygame.Rect(GAME_WIDTH + BLOCK_SIZE + j * BLOCK_SIZE,
-                                                             WINDOW_HEIGHT // 2 - 100 + i * BLOCK_SIZE, BLOCK_SIZE,
-                                                             BLOCK_SIZE))
+                pygame.draw.rect(WINDOW, COLORS[SHAPES.index(next_shape)],
+                                 pygame.Rect(GAME_WIDTH + BLOCK_SIZE + j * BLOCK_SIZE + BLOCK_SIZE // 2,
+                                             WINDOW_HEIGHT // 2 - 100 + i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
 
 
 def draw_grid():
@@ -261,7 +377,7 @@ def draw(current_shape, background_boxes, next_shape):
 
 def main():
     run = True
-    current_shape_size = 0
+    current_shape_position = 0
     background_boxes = create_dict()
 
     clock = pygame.time.Clock()
@@ -271,7 +387,6 @@ def main():
 
     while run:
         clock.tick()
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -288,13 +403,20 @@ def main():
                     move_fast_down(current_shape_rects)
                 if event.key == pygame.K_SPACE:
                     move_to_floor(current_shape_rects, background_boxes)
+                if event.key == pygame.K_UP:
+                    min_x = get_min_x(current_shape_rects)
+                    current_shape_rects, current_shape_position = rotate_shape(min_x, current_shape_rects[0].y,
+                                                                               current_shape,
+                                                                               COLORS[SHAPES.index(current_shape)],
+                                                                               current_shape_position)
 
-        move_down(current_shape_rects)
+        auto_move_down(current_shape_rects)
         if detect_floor(current_shape_rects) or detect_other_shapes(background_boxes, current_shape_rects):
             for box in current_shape_rects:
                 background_boxes[box.y].append(box)
             current_shape = next_shape
             next_shape = random.choice(SHAPES)
+            current_shape_position = 0
             current_shape_rects = create_shape(current_shape[0], COLORS[SHAPES.index(current_shape)])
             background_boxes = check_for_line(background_boxes)
 
