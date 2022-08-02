@@ -10,11 +10,13 @@ WINDOW_WIDTH, WINDOW_HEIGHT = 600, 700
 GAME_WIDTH, GAME_HEIGHT = 300, 600
 TOP_LEFT_X = BLOCK_SIZE
 TOP_LEFT_Y = WINDOW_HEIGHT - GAME_HEIGHT - BLOCK_SIZE
+BORDER_GRID_COLOR = 'blue'
+GRID_COLOR = 'grey'
 WINDOW_BACKGROUND_COLOR = 'black'
 WINDOW = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 
 last = pygame.time.get_ticks()
-cooldown = 1000
+delay = 500
 
 I = [["SSSS"],
      [".S.."
@@ -69,37 +71,6 @@ L = [["SS.."
       "...."]
      ]
 
-# I = [["..SSSS.."],
-#      ["....S..."
-#       "....S..."
-#       "....S..."
-#       "....S..."]]
-
-# T = [["....S..."
-#       "...SSS.."],
-#      ["....S..."
-#       "....SS.."
-#       "....S..."]]
-# SQUARE = [
-#     ["...SS..."
-#      "...SS..."]]
-# Z = [["....S..."
-#       "...SS..."
-#       "...S...."],
-#      ["...SS..."
-#       "....SS.."]]
-# S = [["....S..."
-#       "....SS.."
-#       ".....S.."],
-#      ["...SS..."
-#       "..SS...."]]
-# L = [["...SS..."
-#       "....S..."
-#       "....S..."],
-#      ["........"
-#       "....S..."
-#       "..SSS..."]]
-
 SHAPES = [S, Z, SQUARE, L, T, I]
 COLORS = ["green", "red", "yellow", "orange", "purple", "cyan"]
 
@@ -135,7 +106,7 @@ def detect_other_shapes(background_boxes, current_shape):
 def auto_move_down(shape):
     global last
     now = pygame.time.get_ticks()
-    if now - last >= cooldown:
+    if now - last >= delay:
         last = now
         for box in shape:
             box.y += BLOCK_SIZE
@@ -259,11 +230,11 @@ def rotate_shape(x, y, shape, color, current_shape_position):
 
 
 def create_dict():
-    dict = {}
+    coords_dict = {}
     for i in range(TOP_LEFT_Y, GAME_HEIGHT + TOP_LEFT_Y, BLOCK_SIZE):
-        dict[i] = []
+        coords_dict[i] = []
 
-    return dict
+    return coords_dict
 
 
 def check_for_line(background):
@@ -301,16 +272,30 @@ def remove_line(y_val, background):
     # draw_background(background)
     # pygame.display.update()
     # time.sleep(1)
+    remove_animation(y_val, background, 'blue')
+    remove_animation(y_val, background, 'white')
 
     background[y_val] = []
 
 
+def remove_animation(y_val, background, color):
+    for y, line in background.items():
+        for box in line:
+            if y == y_val:
+                box.color = color
+
+    draw_background(background)
+    draw_grid()
+    pygame.display.update()
+    time.sleep(0.2)
+
+
 def get_min_x(current_shape_rects):
-    min = current_shape_rects[0].x
+    min_x = current_shape_rects[0].x
     for box in current_shape_rects:
-        if box.x < min:
-            min = box.x
-    return min
+        if box.x < min_x:
+            min_x = box.x
+    return min_x
 
 
 def draw_next_shape(next_shape):
@@ -329,22 +314,35 @@ def draw_next_shape(next_shape):
     # pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2),
     #                  (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2 - 150), width=3)
 
-    rows = len(next_shape[0][0]) // 8
-    columns = 8
+    rows = len(next_shape[0][0]) // 4
+    columns = 4
     for i in range(rows):
         for j in range(columns):
             if next_shape[0][0][i * columns + j] == "S":
                 pygame.draw.rect(WINDOW, COLORS[SHAPES.index(next_shape)],
-                                 pygame.Rect(GAME_WIDTH + BLOCK_SIZE + j * BLOCK_SIZE + BLOCK_SIZE // 2,
+                                 pygame.Rect(GAME_WIDTH + j * BLOCK_SIZE + (WINDOW_WIDTH - BLOCK_SIZE
+                                                                            - GAME_WIDTH) // 2,
                                              WINDOW_HEIGHT // 2 - 100 + i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
 
 
 def draw_grid():
-    for i in range(TOP_LEFT_X, GAME_WIDTH + TOP_LEFT_X + BLOCK_SIZE, BLOCK_SIZE):
-        pygame.draw.line(WINDOW, 'white', (i, TOP_LEFT_Y), (i, GAME_HEIGHT + TOP_LEFT_Y))
+    for i in range(TOP_LEFT_X + BLOCK_SIZE, GAME_WIDTH + TOP_LEFT_X + BLOCK_SIZE, BLOCK_SIZE):
+        pygame.draw.line(WINDOW, GRID_COLOR, (i, TOP_LEFT_Y), (i, GAME_HEIGHT + TOP_LEFT_Y), width=3)
 
-    for i in range(TOP_LEFT_Y, GAME_HEIGHT + TOP_LEFT_Y + BLOCK_SIZE, BLOCK_SIZE):
-        pygame.draw.line(WINDOW, 'white', (TOP_LEFT_X, i), (GAME_WIDTH + TOP_LEFT_X, i))
+    for i in range(TOP_LEFT_Y + BLOCK_SIZE, GAME_HEIGHT + TOP_LEFT_Y + BLOCK_SIZE, BLOCK_SIZE):
+        pygame.draw.line(WINDOW, GRID_COLOR, (TOP_LEFT_X, i), (GAME_WIDTH + TOP_LEFT_X, i), width=3)
+
+    pygame.draw.line(WINDOW, BORDER_GRID_COLOR, (TOP_LEFT_X, TOP_LEFT_Y), (GAME_WIDTH + TOP_LEFT_X, TOP_LEFT_Y),
+                     width=5)
+    pygame.draw.line(WINDOW, BORDER_GRID_COLOR, (TOP_LEFT_X, GAME_HEIGHT + TOP_LEFT_Y),
+                     (GAME_WIDTH + TOP_LEFT_X, GAME_HEIGHT
+                      + TOP_LEFT_Y), width=5)
+
+    pygame.draw.line(WINDOW, BORDER_GRID_COLOR, (TOP_LEFT_X, TOP_LEFT_Y), (TOP_LEFT_X, GAME_HEIGHT + TOP_LEFT_Y),
+                     width=5)
+    pygame.draw.line(WINDOW, BORDER_GRID_COLOR, (GAME_WIDTH + TOP_LEFT_X, TOP_LEFT_Y),
+                     (GAME_WIDTH + TOP_LEFT_X, GAME_HEIGHT
+                      + TOP_LEFT_Y), width=5)
 
 
 def draw_shape(shape):
