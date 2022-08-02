@@ -118,7 +118,7 @@ def move_fast_down(shape):
 
 
 def move_to_floor(current_shape_rects, background):
-    while not detect_floor(current_shape_rects) and not detect_other_shapes(background, current_shape_rects):
+    while not detect_other_shapes(background, current_shape_rects) and not detect_floor(current_shape_rects):
         for box in current_shape_rects:
             box.y += BLOCK_SIZE
 
@@ -239,13 +239,15 @@ def create_dict():
 
 def check_for_line(background):
     new_background = background
+    found_line = False
     for y_val, line in background.items():
         if len(line) == GAME_WIDTH / BLOCK_SIZE:
             # print(y_val, line)
             remove_line(y_val, background)
             new_background = move_lines_down(y_val, background)
+            found_line = True
 
-    return new_background
+    return new_background, found_line
 
 
 def move_lines_down(y, background):
@@ -274,6 +276,7 @@ def remove_line(y_val, background):
     # time.sleep(1)
     remove_animation(y_val, background, 'blue')
     remove_animation(y_val, background, 'white')
+    remove_animation(y_val, background, 'blue')
 
     background[y_val] = []
 
@@ -298,10 +301,16 @@ def get_min_x(current_shape_rects):
     return min_x
 
 
+def draw_score(score):
+    FONT = pygame.font.SysFont('indigo', 50)
+    score_label = FONT.render(f"Score: {score} ", True, "white")
+    WINDOW.blit(score_label, (GAME_WIDTH + 3 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 250))
+
+
 def draw_next_shape(next_shape):
     FONT = pygame.font.SysFont('indigo', 32)
     next_label = FONT.render("NEXT SHAPE: ", True, "white")
-    WINDOW.blit(next_label, (GAME_WIDTH + 3 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 150))
+    WINDOW.blit(next_label, (GAME_WIDTH + 3 * BLOCK_SIZE, WINDOW_HEIGHT // 2))
 
     # pygame.draw.line(WINDOW, 'white', (GAME_WIDTH + 2 * BLOCK_SIZE, WINDOW_HEIGHT // 2 - 150),
     #                  (GAME_WIDTH + 3 * BLOCK_SIZE + 180, WINDOW_HEIGHT // 2 - 150), width=3)
@@ -322,7 +331,7 @@ def draw_next_shape(next_shape):
                 pygame.draw.rect(WINDOW, COLORS[SHAPES.index(next_shape)],
                                  pygame.Rect(GAME_WIDTH + j * BLOCK_SIZE + (WINDOW_WIDTH - BLOCK_SIZE
                                                                             - GAME_WIDTH) // 2,
-                                             WINDOW_HEIGHT // 2 - 100 + i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
+                                             WINDOW_HEIGHT // 2 + 50 + i * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE))
 
 
 def draw_grid():
@@ -358,7 +367,7 @@ def draw_background(background):
             pygame.draw.rect(WINDOW, box.color, rect)
 
 
-def draw(current_shape, background_boxes, next_shape):
+def draw(current_shape, background_boxes, next_shape, score):
     WINDOW.fill(WINDOW_BACKGROUND_COLOR)
     FONT = pygame.font.SysFont('indigo', 65)
     tetris_label = FONT.render("TETRIS", True, "white")
@@ -367,6 +376,7 @@ def draw(current_shape, background_boxes, next_shape):
 
     draw_shape(current_shape)
     draw_background(background_boxes)
+    draw_score(score)
 
     draw_next_shape(next_shape)
     draw_grid()
@@ -374,6 +384,7 @@ def draw(current_shape, background_boxes, next_shape):
 
 
 def main():
+    score = 0
     run = True
     current_shape_position = 0
     background_boxes = create_dict()
@@ -399,8 +410,11 @@ def main():
                         move_left(current_shape_rects)
                 if event.key == pygame.K_DOWN:
                     move_fast_down(current_shape_rects)
+                    score += 1
                 if event.key == pygame.K_SPACE:
+                    score += 20 - (current_shape_rects[0].y - TOP_LEFT_Y) // BLOCK_SIZE
                     move_to_floor(current_shape_rects, background_boxes)
+
                 if event.key == pygame.K_UP:
                     min_x = get_min_x(current_shape_rects)
                     current_shape_rects, current_shape_position = rotate_shape(min_x, current_shape_rects[0].y,
@@ -416,9 +430,11 @@ def main():
             next_shape = random.choice(SHAPES)
             current_shape_position = 0
             current_shape_rects = create_shape(current_shape[0], COLORS[SHAPES.index(current_shape)])
-            background_boxes = check_for_line(background_boxes)
+            background_boxes, found_line = check_for_line(background_boxes)
+            if found_line:
+                score += 100
 
-        draw(current_shape_rects, background_boxes, next_shape)
+        draw(current_shape_rects, background_boxes, next_shape, score)
 
     pygame.quit()
 
