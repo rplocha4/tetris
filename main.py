@@ -8,15 +8,20 @@ pygame.init()
 BLOCK_SIZE = 30
 WINDOW_WIDTH, WINDOW_HEIGHT = 600, 700
 GAME_WIDTH, GAME_HEIGHT = 300, 600
+START_X = GAME_WIDTH // 2
 TOP_LEFT_X = BLOCK_SIZE
 TOP_LEFT_Y = WINDOW_HEIGHT - GAME_HEIGHT - BLOCK_SIZE
-BORDER_GRID_COLOR = 'blue'
-GRID_COLOR = 'grey'
+BORDER_GRID_COLOR = 'bisque3'
+GRID_COLOR = 'grey19'
 WINDOW_BACKGROUND_COLOR = 'black'
 WINDOW = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+tetris_icon = pygame.image.load('icon.png')
+
+pygame.display.set_icon(tetris_icon)
+pygame.display.set_caption("Tetris")
 
 last = pygame.time.get_ticks()
-delay = 500
+delay = 400
 
 I = [["SSSS"],
      [".S.."
@@ -29,8 +34,7 @@ T = [[".S.."
      [".S.."
       ".SS."
       ".S.."],
-     ["...."
-      "SSS."
+     ["SSS."
       ".S.."],
      [".S.."
       "SS.."
@@ -50,25 +54,17 @@ S = [["S..."
       "SS.."
       ".S.."],
      [".SS."
-      "SS.."],
-     # ["S..."
-     #  "SS.."
-     #  ".S.."],
-     # [".SS."
-     #  "SS.."],
-     ]
+      "SS.."]]
 L = [["SS.."
       ".S.."
       ".S.."],
-     ["...."
-      "..S."
+     ["..S."
       "SSS."],
      ["S..."
       "S..."
       "SS.."],
      ["SSS."
-      "S..."
-      "...."]
+      "S..."]
      ]
 L_m = [["SS.."
         "S..."
@@ -83,6 +79,9 @@ L_m = [["SS.."
 
 SHAPES = [S, Z, SQUARE, L, T, I, L_m]
 COLORS = ["green", "red", "yellow", "orange", "purple", "cyan", "blue"]
+
+
+# SHAPES = [I]
 
 
 class Block:
@@ -140,9 +139,10 @@ def move_left(shape):
         box.x -= BLOCK_SIZE
 
 
-def move_top(shape):
-    for box in shape:
-        box.y -= GAME_HEIGHT
+def move_to_shape(prev_shape, shape):
+    for i, box in enumerate(prev_shape):
+        while box.y != shape[i].y:
+            box.y -= BLOCK_SIZE
 
 
 def detect_left_wall(shape):
@@ -200,7 +200,7 @@ def detect_shapes_collision_on_moving_left(background_boxes, current_shape):
 #     return created_shape
 
 
-def create_shape(shape, color, current_x=GAME_WIDTH // 2 - BLOCK_SIZE, current_y=TOP_LEFT_Y):
+def create_shape(shape, color, current_x=START_X, current_y=TOP_LEFT_Y):
     created_shape = []
     rows = len(shape[0]) // 4
     columns = 4
@@ -246,17 +246,19 @@ def create_background_dict():
     return coords_dict
 
 
-def check_for_line(background):
-    new_background = background
-    found_line = False
-    for y_val, line in background.items():
+def check_for_line(current_shape_rects, background_boxes, next_shape, preview_box, score, best_score):
+    new_background = background_boxes
+    found_lines = 0
+    for y_val, line in background_boxes.items():
         if len(line) == GAME_WIDTH / BLOCK_SIZE:
             # print(y_val, line)
-            remove_line(y_val, background)
-            new_background = move_lines_down(y_val, background)
-            found_line = True
+            new_background = remove_line(y_val, background_boxes)
+            new_background = move_lines_down(y_val, new_background)
+            score += 100
+            found_lines += 1
+            draw(current_shape_rects, background_boxes, next_shape, preview_box, score, best_score)
 
-    return new_background, found_line
+    return new_background, found_lines
 
 
 def move_lines_down(y, background):
@@ -269,25 +271,19 @@ def move_lines_down(y, background):
     for line in background.values():
         for box in line:
             new_background[box.y].append(box)
+
     return new_background
 
 
 def remove_line(y_val, background):
-    # debug
-
-    # for y, line in background.items():
-    #     for box in line:
-    #         if y == y_val:
-    #             box.color = 'white'
-    #
-    # draw_background(background)
-    # pygame.display.update()
-    # time.sleep(1)
-    remove_animation(y_val, background, 'green')
+    remove_animation(y_val, background, 'DeepSkyBlue')
     remove_animation(y_val, background, 'white')
-    remove_animation(y_val, background, 'green')
+    remove_animation(y_val, background, 'DeepSkyBlue ')
+    remove_animation(y_val, background, 'white')
+    remove_animation(y_val, background, WINDOW_BACKGROUND_COLOR)
 
     background[y_val] = []
+    return background
 
 
 def remove_animation(y_val, background, color):
@@ -296,10 +292,16 @@ def remove_animation(y_val, background, color):
             if y == y_val:
                 box.color = color
 
+    draw_game(background)
+    time.sleep(0.15)
+
+
+def draw_game(background):
     draw_background(background)
     draw_grid()
+    draw_grid_border()
+
     pygame.display.update()
-    time.sleep(0.2)
 
 
 def read_best_score():
@@ -323,27 +325,29 @@ def get_min_x(current_shape_rects):
 def can_spawn(background):
     for line in background.values():
         for box1 in line:
-            if box1.x == GAME_WIDTH // 2 - BLOCK_SIZE and box1.y <= TOP_LEFT_Y:
+            if box1.x == START_X and box1.y <= TOP_LEFT_Y:
                 return False
     return True
 
 
 def reset_game(score, best_score):
-    time.sleep(1)
+    time.sleep(0.5)
     if score > int(best_score):
         best_score = score
         save_new_score(score)
-        score = 0
+    score = 0
     current_shape_position = 0
     background_boxes = create_background_dict()
     current_shape = random.choice(SHAPES)
     next_shape = random.choice(SHAPES)
+
     color = COLORS[SHAPES.index(current_shape)]
-
-    preview_box = create_preview(current_shape, 0, color)
+    preview_box = create_shape(current_shape[0], color)
     move_to_floor(preview_box, background_boxes)
+    current_shape_rects = create_shape(current_shape[0], COLORS[SHAPES.index(current_shape)])
 
-    return score, best_score, current_shape_position, background_boxes, current_shape, next_shape, preview_box
+    return score, best_score, current_shape_position, background_boxes, current_shape, next_shape, \
+           preview_box, current_shape_rects
 
 
 def draw_score(score, best_score):
@@ -400,6 +404,8 @@ def draw_grid():
     for i in range(TOP_LEFT_Y + BLOCK_SIZE, GAME_HEIGHT + TOP_LEFT_Y + BLOCK_SIZE, BLOCK_SIZE):
         pygame.draw.line(WINDOW, GRID_COLOR, (TOP_LEFT_X, i), (GAME_WIDTH + TOP_LEFT_X, i), width=3)
 
+
+def draw_grid_border():
     pygame.draw.line(WINDOW, BORDER_GRID_COLOR, (TOP_LEFT_X, TOP_LEFT_Y), (GAME_WIDTH + TOP_LEFT_X, TOP_LEFT_Y),
                      width=5)
     pygame.draw.line(WINDOW, BORDER_GRID_COLOR, (TOP_LEFT_X, GAME_HEIGHT + TOP_LEFT_Y),
@@ -413,7 +419,7 @@ def draw_grid():
                       + TOP_LEFT_Y), width=5)
 
 
-def create_preview(current_shape, current_shape_position, color, x=GAME_WIDTH // 2 - BLOCK_SIZE, y=TOP_LEFT_Y):
+def create_preview(current_shape, current_shape_position, color, x=START_X, y=TOP_LEFT_Y):
     if SHAPES.index(current_shape) == 4 and current_shape_position == 2 \
             or SHAPES.index(current_shape) == 5 and current_shape_position == 0:
         x -= BLOCK_SIZE
@@ -424,7 +430,7 @@ def create_preview(current_shape, current_shape_position, color, x=GAME_WIDTH //
 def draw_preview(preview):
     for box in preview:
         rect = pygame.Rect(box.x, box.y, box.width, box.height)
-        pygame.draw.rect(WINDOW, box.color, rect, width=3)
+        pygame.draw.rect(WINDOW, box.color, rect, width=1)
 
 
 def draw_shape(shape):
@@ -455,6 +461,7 @@ def draw(current_shape, background_boxes, next_shape, preview, score, best_score
 
     draw_grid()
     draw_preview(preview)
+    draw_grid_border()
 
     pygame.display.update()
 
@@ -469,9 +476,10 @@ def main():
     current_shape = random.choice(SHAPES)
     next_shape = random.choice(SHAPES)
     color = COLORS[SHAPES.index(current_shape)]
-    current_shape_rects = create_shape(current_shape[0], color)
     preview_box = create_shape(current_shape[0], color)
     move_to_floor(preview_box, background_boxes)
+
+    current_shape_rects = create_shape(current_shape[0], color)
 
     while run:
         clock.tick()
@@ -482,25 +490,22 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     run = False
                 if event.key == pygame.K_r:
-                    score, best_score, current_shape_position, background_boxes, current_shape, next_shape, preview_box = reset_game(
-                        score, best_score)
-                    current_shape_rects = create_shape(current_shape[0], COLORS[SHAPES.index(current_shape)])
+                    score, best_score, current_shape_position, background_boxes, current_shape, next_shape, \
+                    preview_box, current_shape_rects = reset_game(score, best_score)
 
                 if can_move_right(background_boxes, current_shape_rects):
                     if event.key == pygame.K_RIGHT:
                         move_right(current_shape_rects)
-                        move_top(preview_box)
+                        move_to_shape(preview_box, current_shape_rects)
                         move_right(preview_box)
                         move_to_floor(preview_box, background_boxes)
 
                 if can_move_left(background_boxes, current_shape_rects):
                     if event.key == pygame.K_LEFT:
                         move_left(current_shape_rects)
-                        move_top(preview_box)
+                        move_to_shape(preview_box, current_shape_rects)
                         move_left(preview_box)
                         move_to_floor(preview_box, background_boxes)
-
-
 
                 if event.key == pygame.K_DOWN:
                     move_fast_down(current_shape_rects)
@@ -521,9 +526,11 @@ def main():
                         preview_box = create_preview(current_shape, current_shape_position, color, min_x, y)
                         move_to_floor(preview_box, background_boxes)
 
-        auto_move_down(current_shape_rects)
+        draw(current_shape_rects, background_boxes, next_shape, preview_box, score, best_score)
 
-        if detect_floor(current_shape_rects) or detect_other_shapes(background_boxes, current_shape_rects):
+        if not detect_floor(current_shape_rects) and not detect_other_shapes(background_boxes, current_shape_rects):
+            auto_move_down(current_shape_rects)
+        else:
             for box in current_shape_rects:
                 background_boxes[box.y].append(box)
 
@@ -535,18 +542,18 @@ def main():
                 current_shape_position = 0
                 current_shape_rects = create_shape(current_shape[0], color)
 
+                background_boxes, found_lines = \
+                    check_for_line(current_shape_rects, background_boxes, next_shape, preview_box, score, best_score)
+
+                score += found_lines * 100
+
                 preview_box = create_shape(current_shape[0], color)
                 move_to_floor(preview_box, background_boxes)
 
-                background_boxes, found_line = check_for_line(background_boxes)
-                if found_line:
-                    score += 100
-            else:
-                score, best_score, current_shape_position, background_boxes, current_shape, next_shape, preview_box = reset_game(
-                    score, best_score)
-                current_shape_rects = create_shape(current_shape[0], COLORS[SHAPES.index(current_shape)])
 
-        draw(current_shape_rects, background_boxes, next_shape, preview_box, score, best_score)
+            else:
+                score, best_score, current_shape_position, background_boxes, current_shape, next_shape, \
+                preview_box, current_shape_rects = reset_game(score, best_score)
 
     if int(score) > int(best_score):
         save_new_score(score)
